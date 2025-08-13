@@ -1,8 +1,6 @@
-import org.w3c.dom.Attr;
-
 public class Fluid {
 
-    int SCREENSIZE = 20;
+    int SCREENSIZE = 5;
     Attribute densities;
 
     Fluid(){
@@ -10,27 +8,66 @@ public class Fluid {
     }
 
     void setup(){
-        densities.set(10, 5, 5);
+        densities.set(10, 2, 2);
     }
 
     void step(){
+        setborderattr();
+        diffuse(0.5);
         display();
+    }
+
+    void diffuse(double k){
+        double[][] A = new double[SCREENSIZE*SCREENSIZE][SCREENSIZE*SCREENSIZE];
+        double[] B = new double[SCREENSIZE*SCREENSIZE];
+
+        for(int i = 0; i < SCREENSIZE; i++){
+            for(int j = 0; j < SCREENSIZE; j++){
+                if(j==0 || i == 0 || i == SCREENSIZE-1 || j == SCREENSIZE-1){
+                    continue;
+                }
+
+                A[densities.map(i, j)][densities.map(i, j+1)] = -0.25*k;
+                A[densities.map(i, j)][densities.map(i, j-1)] = -0.25*k;
+                A[densities.map(i, j)][densities.map(i+1, j)] = -0.25*k;
+                A[densities.map(i, j)][densities.map(i-1, j)] = -0.25*k;
+                A[densities.map(i, j)][densities.map(i, j)] = 1+k;
+            }
+
+            B = densities.values;
+
+            GaussSidel solver = new GaussSidel(5);
+            double[] X = solver.solve(A, B);
+
+            densities.values = X;
+        }
+    }
+
+    void setborderattr(){
+        for(int i = 0; i < SCREENSIZE; i++){
+            densities.set(0, 0, i);
+            densities.set(0, i, 0);
+            densities.set(0, SCREENSIZE-1, i);
+            densities.set(0, i, SCREENSIZE-1);
+        }
     }
 
     void display(){
         System.out.print("\033[H\033[2J");
         System.out.flush();
-        for(int i = 0; i < SCREENSIZE; i++){
-            for(int j = 0; j < SCREENSIZE; j++){
-                if(densities.get(i, j)>3){
-                    System.out.print("# ");
-                }
-                else{
-                    System.out.print("  ");
-                }
-            }
-            System.err.println();
-        }
+
+        densities.show();
+        // for(int i = 0; i < SCREENSIZE; i++){
+        //     for(int j = 0; j < SCREENSIZE; j++){
+        //         if(densities.get(i, j)>3){
+        //             System.out.print("# ");
+        //         }
+        //         else{
+        //             System.out.print("  ");
+        //         }
+        //     }
+        //     System.out.println();
+        // }
     }
     
     /*
