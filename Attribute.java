@@ -28,8 +28,9 @@ public class Attribute {
     void show(){
         for(int i = 0 ; i < sizex; i++){
             for(int j = 0; j < sizey; j++){
-                System.out.print((int)values[map(i, j)] + " ");
+                System.out.printf("%.1f  ", values[map(i, j)]);
             }
+            System.out.println();
             System.out.println();
         }
     }
