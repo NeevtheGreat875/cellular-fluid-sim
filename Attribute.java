@@ -24,4 +24,13 @@ public class Attribute {
     double get(int _x, int _y){
         return values[map(_x, _y)];
     }
+
+    void show(){
+        for(int i = 0 ; i < sizex; i++){
+            for(int j = 0; j < sizey; j++){
+                System.out.print((int)values[map(i, j)] + " ");
+            }
+            System.out.println();
+        }
+    }
 }
