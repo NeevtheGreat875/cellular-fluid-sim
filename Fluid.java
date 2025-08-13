@@ -1,20 +1,29 @@
 public class Fluid {
 
-    int SCREENSIZE = 5;
-    Attribute densities;
+    int SCREENSIZE = 35;
+    Attribute DENSITIES;
+    char[] SHADER = {' ', '-', '.', ':', '=', '+', '*', '#', '%', '@'};
+    double MAXDISPLAYDENSITY = 9;
 
     Fluid(){
-        densities = new Attribute("density", SCREENSIZE, SCREENSIZE);
+        DENSITIES = new Attribute("density", SCREENSIZE, SCREENSIZE);
     }
 
     void setup(){
-        densities.set(10, 2, 2);
+        DENSITIES.set(10, 2, 2);
     }
 
     void step(){
         setborderattr();
-        diffuse(0.5);
+        diffuse(1);
         display();
+
+        try {
+            Thread.sleep(0);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
     }
 
     void diffuse(double k){
@@ -23,51 +32,49 @@ public class Fluid {
 
         for(int i = 0; i < SCREENSIZE; i++){
             for(int j = 0; j < SCREENSIZE; j++){
+                A[DENSITIES.map(i, j)][DENSITIES.map(i, j)] = 1+k;
+
                 if(j==0 || i == 0 || i == SCREENSIZE-1 || j == SCREENSIZE-1){
                     continue;
                 }
 
-                A[densities.map(i, j)][densities.map(i, j+1)] = -0.25*k;
-                A[densities.map(i, j)][densities.map(i, j-1)] = -0.25*k;
-                A[densities.map(i, j)][densities.map(i+1, j)] = -0.25*k;
-                A[densities.map(i, j)][densities.map(i-1, j)] = -0.25*k;
-                A[densities.map(i, j)][densities.map(i, j)] = 1+k;
+                A[DENSITIES.map(i, j)][DENSITIES.map(i, j+1)] = -0.25*k;
+                A[DENSITIES.map(i, j)][DENSITIES.map(i, j-1)] = -0.25*k;
+                A[DENSITIES.map(i, j)][DENSITIES.map(i+1, j)] = -0.25*k;
+                A[DENSITIES.map(i, j)][DENSITIES.map(i-1, j)] = -0.25*k;
+                
             }
-
-            B = densities.values;
-
-            GaussSidel solver = new GaussSidel(5);
-            double[] X = solver.solve(A, B);
-
-            densities.values = X;
         }
+
+        
+
+        B = DENSITIES.values;
+
+        GaussSidel solver = new GaussSidel(25);
+        double[] X = solver.solve(A, B);
+
+        DENSITIES.values = X;
     }
 
     void setborderattr(){
         for(int i = 0; i < SCREENSIZE; i++){
-            densities.set(0, 0, i);
-            densities.set(0, i, 0);
-            densities.set(0, SCREENSIZE-1, i);
-            densities.set(0, i, SCREENSIZE-1);
+            DENSITIES.set(10, 0, i);
+            DENSITIES.set(10, i, 0);
+            // DENSITIES.set(0, SCREENSIZE-1, i);
+            // DENSITIES.set(0, i, SCREENSIZE-1);
         }
     }
 
     void display(){
         System.out.print("\033[H\033[2J");
         System.out.flush();
-
-        densities.show();
-        // for(int i = 0; i < SCREENSIZE; i++){
-        //     for(int j = 0; j < SCREENSIZE; j++){
-        //         if(densities.get(i, j)>3){
-        //             System.out.print("# ");
-        //         }
-        //         else{
-        //             System.out.print("  ");
-        //         }
-        //     }
-        //     System.out.println();
-        // }
+        
+        for(int i = 0; i < SCREENSIZE; i++){
+            for(int j = 0; j < SCREENSIZE; j++){
+                System.out.print( SHADER[ (int)(DENSITIES.get(i, j) * ( SHADER.length / MAXDISPLAYDENSITY )) ] + " " );
+            }
+            System.out.println();
+        }
     }
     
     /*
