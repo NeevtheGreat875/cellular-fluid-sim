@@ -1,107 +1,176 @@
 public class Fluid {
 
-    int SCREENSIZE = 35;
+    int SCREENSIZE = 60;
     Attribute DENSITIES;
+    Attribute VX;
+    Attribute VY;
     char[] SHADER = {' ', '-', '.', ':', '=', '+', '*', '#', '%', '@'};
-    double MAXDISPLAYDENSITY = 9;
+    double MAXDISPLAYDENSITY = 11;
 
     Fluid(){
         DENSITIES = new Attribute("density", SCREENSIZE, SCREENSIZE);
+        VX = new Attribute("Velocity X", SCREENSIZE, SCREENSIZE);
+        VY = new Attribute("Velocity Y", SCREENSIZE, SCREENSIZE);
     }
 
     void setup(){
-        DENSITIES.set(10, 2, 2);
+        drawattr(15, 2, 20, DENSITIES, 10);
+        drawattr(15, 2, 20, VY, 4);
+        // drawattr(20, 2, 20, VX, 5);
+        // setborderattr();
     }
 
     void step(){
-        setborderattr();
-        diffuse(1);
+        drawattr(18, 1, 25, VY, 2);
+        drawattr(18, 1, 25, VX, 2);
+
+        diffuse(VX, 10, 0.05);
+        diffuse(VY, 10, 0.05);
+        project(VX, VY, 20);
+
+        advect(VX, 0.1);
+        advect(VY, 0.1);
+
+        project(VX, VY, 20);
+
+        advect(DENSITIES, 0.1);
+        
         display();
 
         try {
-            Thread.sleep(0);
+            Thread.sleep(32);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        }
+    }
+
+    void project(Attribute attrx, Attribute attry, int iter){
+
+        setborderattr();
+
+        Attribute divergence = new Attribute("Divergence", SCREENSIZE, SCREENSIZE);
+
+        for(int i = 1; i < SCREENSIZE-1; i++){
+            for(int j = 1; j < SCREENSIZE-1; j++){
+                double dy = attry.get(i, j+1) - attry.get(i, j-1);
+                double dx = attrx.get(i+1, j) - attrx.get(i-1, j);
+                double d = (dx+dy)/2.0;
+                divergence.set(d, i, j);
+            }
+        }
+
+        //p(x,y)=[sum(surrounding p(x,y)) - d(x,y)]/4
+
+        Attribute pressures = new Attribute("Pressures", SCREENSIZE, SCREENSIZE);
+
+        for (int i = 0; i < iter; i++) {
+            for(int x = 1; x < SCREENSIZE-1; x++){
+                for(int y = 1; y < SCREENSIZE-1; y++){
+                    double s = pressures.get(x+1, y) + pressures.get(x-1, y) + pressures.get(x, y+1) + pressures.get(x, y-1);
+                    double p = (s-divergence.get(x, y))/4.0;
+                    pressures.set(p, x, y);
+                }
+            }
+        }
+
+        for(int x = 1; x < SCREENSIZE-1; x++){
+            for(int y = 1; y < SCREENSIZE-1; y++){
+                double gx = (pressures.get(x+1, y) - pressures.get(x-1, y))/2;
+                double gy = (pressures.get(x, y+1) - pressures.get(x, y-1))/2;
+                attrx.values[attrx.map(x, y)] -= gx;
+                attry.values[attrx.map(x, y)] -= gy;
+            }
         }
 
     }
 
-    void diffuse(double k){
-        double[][] A = new double[SCREENSIZE*SCREENSIZE][SCREENSIZE*SCREENSIZE];
-        double[] B = new double[SCREENSIZE*SCREENSIZE];
+    void advect(Attribute _attr, double _dt){
+        Attribute attr = new Attribute("", SCREENSIZE, SCREENSIZE);
+        attr.values = _attr.values.clone();
 
-        for(int i = 0; i < SCREENSIZE; i++){
-            for(int j = 0; j < SCREENSIZE; j++){
-                A[DENSITIES.map(i, j)][DENSITIES.map(i, j)] = 1+k;
+        for(int px = 1; px < SCREENSIZE-2; px++){
+            for(int py = 1; py < SCREENSIZE-2; py++){
 
-                if(j==0 || i == 0 || i == SCREENSIZE-1 || j == SCREENSIZE-1){
-                    continue;
-                }
-
-                A[DENSITIES.map(i, j)][DENSITIES.map(i, j+1)] = -0.25*k;
-                A[DENSITIES.map(i, j)][DENSITIES.map(i, j-1)] = -0.25*k;
-                A[DENSITIES.map(i, j)][DENSITIES.map(i+1, j)] = -0.25*k;
-                A[DENSITIES.map(i, j)][DENSITIES.map(i-1, j)] = -0.25*k;
+                double _px = px - VX.get(px, py)*_dt;
+                double _py = py - VY.get(px, py)*_dt;
                 
+
+                int px_f = (int)Math.floor(_px);
+                int py_f = (int)Math.floor(_py);
+                double px_fract = _px-px_f;
+                double py_fract = _py-py_f;
+
+                double z1 = lerp(attr.get(px_f, py_f), attr.get(px_f+1, py_f), px_fract);
+                double z2 = lerp(attr.get(px_f, py_f+1), attr.get(px_f+1, py_f+1), px_fract);
+
+                double d_n = lerp(z1, z2, py_fract);
+
+                attr.set(d_n, px, py);
             }
         }
 
+        _attr.values = attr.values;
+    }
+
+    double lerp(double _a, double _b, double _k){
+        return _a + _k*(_b-_a);
+    }
+
+    void diffuse(Attribute attr, int iter, double k){
+        setborderattr();
         
+        double[] X = attr.values.clone();
 
-        B = DENSITIES.values;
+        for(int n = 0; n < iter; n++){
+            for(int i = 1; i < SCREENSIZE-2; i++){
+                for(int j = 1; j < SCREENSIZE-2; j++){
+                    double sum_n = X[attr.map(i+1, j)] + X[attr.map(i, j+1)] + X[attr.map(i-1, j)] + X[attr.map(i, j-1)];
+                    double d_c = attr.values[attr.map(i, j)];
+                    X[attr.map(i, j)] = ( d_c + (0.25*k*sum_n) ) / (1.0 + k);
+                }
+            }
+        }
 
-        GaussSidel solver = new GaussSidel(25);
-        double[] X = solver.solve(A, B);
-
-        DENSITIES.values = X;
+        attr.values = X;
+        setborderattr();
     }
 
     void setborderattr(){
         for(int i = 0; i < SCREENSIZE; i++){
-            DENSITIES.set(10, 0, i);
-            DENSITIES.set(10, i, 0);
-            // DENSITIES.set(0, SCREENSIZE-1, i);
-            // DENSITIES.set(0, i, SCREENSIZE-1);
+            VX.set(0, i, 0);
+            VX.set(0, i, SCREENSIZE-1);
+
+            VY.set(0, 0, i);
+            VY.set(0, SCREENSIZE-1, i);
+
+            DENSITIES.set(0, 0, i);
+            DENSITIES.set(0, SCREENSIZE-1, i);
+            DENSITIES.set(0, i, 0);
+            DENSITIES.set(0, i, SCREENSIZE-1);
         }
     }
 
     void display(){
         System.out.print("\033[H\033[2J");
         System.out.flush();
-        
+        // DENSITIES.show();
+
+        // DENSITIES.show();
         for(int i = 0; i < SCREENSIZE; i++){
             for(int j = 0; j < SCREENSIZE; j++){
-                System.out.print( SHADER[ (int)(DENSITIES.get(i, j) * ( SHADER.length / MAXDISPLAYDENSITY )) ] + " " );
+                System.out.print(SHADER[(int)(DENSITIES.get(i, j)*(SHADER.length/MAXDISPLAYDENSITY))] + " ");
             }
             System.out.println();
         }
     }
-    
-    /*
-    class attribute
-    - data
-    - 1D array format
-    - map 2D to 1D index
-    - access attributes
-    - set attribute
 
-    class simulation
-    - display()
-    - parameters
-    - step()
-
-    MAP 2D denisity feild to 1D array X
-    X = next densities [Nx1]
-
-    A will be a array of -1/4s and 0s multiplied by K
-    A = -K(surrounding densities) [NxN]
-
-    current densities
-    B = current densities [Nx1]
-
-    solve for X using A and B
-    */
-
+    void drawattr(int x, int y, int size, Attribute attr, double v){
+        for(int i = 0; i < size; i++){
+            for(int j = 0; j < size; j++){
+                attr.set(v, x+i, y+j);
+            }
+        }
+    }
 
     public static void main(String[] args) {
         Fluid sim = new Fluid();
