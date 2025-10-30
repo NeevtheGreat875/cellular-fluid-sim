@@ -17,6 +17,10 @@ public class Attribute {
         return sizex*_x + _y;
     }
 
+    static int map(int _xsize, int _x, int _y){
+        return _xsize*_x + _y;
+    }
+
     void set(double _val, int _x, int _y){
         values[map(_x, _y)] = _val;
     }
