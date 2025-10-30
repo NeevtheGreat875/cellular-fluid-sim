@@ -28,26 +28,4 @@ public class GaussSidel
 
         return X;
     }
-    
-    void state(){
-        for(int i = 0; i < n; i++){
-            System.out.println(X[i]);
-        }
-    }
-    
-    public static void main(String[] args){
-        double[][] A = {
-            {10, -9, 1},
-            {1, 9, -1},
-            {-5, -9, 11},
-        };
-        double[] B = {6,0,10};
-        
-        GaussSidel solver = new GaussSidel(10);
-        double[] X = solver.solve(A, B);
-        
-        for (double d : X) {
-            System.out.println(d);
-        }
-    }
 }
